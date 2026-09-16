@@ -56,6 +56,14 @@ docker compose up --build
 
 Brings up all 3 services (`mysql`, `backend`, `frontend`). The backend waits for MySQL to be `healthy` before starting and applies pending migrations (`prisma migrate deploy`) automatically in its entrypoint, with retries. All 3 services run under `network_mode: host` (see the technical decisions section) — this works on Linux; on other OSes, use the local (non-Docker) setup for frontend/backend instead.
 
+**If `docker compose up --build` refuses to build** with an error like `Your build is requesting privileges for following possibly insecure capabilities: Running build containers that can access host network`: this is BuildKit asking permission for the `network: host` set on the backend/frontend build stages (needed so `npm ci` can resolve DNS through the host's network stack instead of Compose's default bridge network). Compose's `build`/`up --build` don't expose a flag to pre-grant it, so build the images directly with `buildx bake` once, then start normally:
+
+```bash
+docker compose build --print > /tmp/bake.json
+docker buildx bake --allow=network.host --file /tmp/bake.json
+docker compose up -d
+```
+
 ## Tests
 
 ```bash

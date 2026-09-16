@@ -113,7 +113,7 @@ export function OrderForm({ action, customers, products }: OrderFormProps) {
           value={customerId}
           onValueChange={(v) => setCustomerId(v ?? "")}
         >
-          <SelectTrigger id="customer" className="w-full">
+          <SelectTrigger id="customer" aria-label="Cliente" className="w-full">
             <SelectValue placeholder="Selecciona un cliente" />
           </SelectTrigger>
           <SelectContent>
@@ -138,7 +138,7 @@ export function OrderForm({ action, customers, products }: OrderFormProps) {
                 value={item.product_id ? String(item.product_id) : ""}
                 onValueChange={(v) => updateItem(i, "product_id", v ?? "")}
               >
-                <SelectTrigger className="w-full">
+                <SelectTrigger className="w-full" aria-label="Producto">
                   <SelectValue placeholder="Selecciona producto" />
                 </SelectTrigger>
                 <SelectContent>

@@ -5,6 +5,9 @@ import { PageHeader } from "@/components/organisms/page-header";
 import { createOrder } from "@/actions/orders";
 
 export const metadata: Metadata = { title: "Nueva orden" };
+// Always render on request: the customer/product pickers must reflect live
+// data, and this also avoids requiring a reachable backend at build time.
+export const dynamic = "force-dynamic";
 
 export default async function NewOrderPage() {
   const [customers, products] = await Promise.all([

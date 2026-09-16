@@ -50,7 +50,7 @@ export default async function CustomersPage({ searchParams }: PageProps) {
           >
             Editar
           </Button>
-          <ToggleCustomerButton id={row.id} isActive={row.is_active} />
+          <ToggleCustomerButton id={row.id} name={row.name} isActive={row.is_active} />
         </div>
       ),
     },

@@ -1,7 +1,6 @@
 "use client";
 
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import { useCallback } from "react";
 import { Input } from "@/components/atoms/input";
 import { SearchIcon } from "lucide-react";
 
@@ -14,19 +13,16 @@ export function SearchBar({ placeholder = "Buscar..." }: SearchBarProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  const handleChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const params = new URLSearchParams(searchParams.toString());
-      if (e.target.value) {
-        params.set("search", e.target.value);
-      } else {
-        params.delete("search");
-      }
-      params.delete("page");
-      router.push(`${pathname}?${params.toString()}`);
-    },
-    [router, pathname, searchParams]
-  );
+  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const params = new URLSearchParams(searchParams.toString());
+    if (e.target.value) {
+      params.set("search", e.target.value);
+    } else {
+      params.delete("search");
+    }
+    params.delete("page");
+    router.push(`${pathname}?${params.toString()}`);
+  }
 
   return (
     <div className="relative max-w-sm">

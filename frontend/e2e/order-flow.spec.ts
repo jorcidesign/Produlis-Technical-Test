@@ -48,9 +48,10 @@ test.describe("Order flow: create customer -> create order -> cancel", () => {
     await expect(row).toContainText(expectedTotal);
     await expect(row.getByText("Pendiente")).toBeVisible();
 
-    // 4. Cancel it from the detail page
+    // 4. Cancel it from the detail page (goes through the confirm dialog)
     await row.getByRole("link", { name: "Ver detalle" }).click();
     await page.getByRole("button", { name: "Cancelar orden" }).click();
+    await page.getByRole("alertdialog").getByRole("button", { name: "Cancelar orden" }).click();
     await expect(page.getByText("Cancelada")).toBeVisible();
     await expect(page.getByRole("button", { name: "Marcar completada" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Cancelar orden" })).toHaveCount(0);

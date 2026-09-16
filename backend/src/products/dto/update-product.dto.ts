@@ -1,6 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsNumber, IsOptional, IsString, MaxLength, Min } from 'class-validator';
+import { IsBoolean, IsNumber, IsOptional, IsString, MaxLength, Min } from 'class-validator';
 
 export class UpdateProductDto {
   @ApiPropertyOptional({ example: 'Laptop Pro v2' })
@@ -26,4 +26,9 @@ export class UpdateProductDto {
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0.01)
   price?: number;
+
+  @ApiPropertyOptional({ example: true, description: 'Activate/deactivate the product' })
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
 }

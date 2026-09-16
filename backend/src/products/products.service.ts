@@ -62,7 +62,10 @@ export class ProductsService {
   }
 
   async update(id: number, dto: UpdateProductDto) {
-    await this.findOne(id);
+    const existing = await this.prisma.product.findUnique({ where: { id } });
+    if (!existing) {
+      throw new NotFoundException(`Product #${id} not found`);
+    }
     if (dto.sku) {
       const conflict = await this.prisma.product.findFirst({
         where: { sku: dto.sku, NOT: { id } },

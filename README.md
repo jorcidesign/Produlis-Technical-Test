@@ -87,6 +87,7 @@ npx playwright test
 
 - Sin autenticación ni control de acceso — cualquiera con la URL puede operar el sistema.
 - Sin control de inventario/stock — el catálogo es solo nombre + precio.
+- **No hay forma de corregir una orden ya `completed`.** Es una decisión de diseño intencional: una orden completada es, en la práctica, un registro contable/legal (como una factura ya emitida) y no se edita en sitio. Pero como la máquina de estados tampoco permite `completed → cancelled`, si hubo un error después de completar (cantidad mal capturada, producto equivocado) hoy no existe ningún flujo para corregirlo — ni cancelar, ni una "nota de crédito" que la reverse. El flujo real correcto sería agregar ese mecanismo (o permitir cancelar una `completed` dentro de una ventana de tiempo corta), documentado aquí como mejora futura, no implementado en esta entrega.
 - `network_mode: host` en Docker Compose es Linux-only.
 - Los tests e2e de backend y el e2e de Playwright requieren un servidor real corriendo (no están aislados en un sandbox in-memory).
 - Los botones que navegan (`<Button render={<Link .../>}>`) emiten un warning de consola de Base UI ("expected a native `<button>`") en desarrollo. Es cosmético: se probó `nativeButton={false}` para silenciarlo, pero eso reescribe el rol ARIA de `link` a `button` en elementos de navegación (regresión real de semántica/accesibilidad), así que se revirtió — el warning queda documentado en vez de "corregido" con una solución peor.

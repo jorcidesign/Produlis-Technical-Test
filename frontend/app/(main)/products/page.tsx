@@ -53,7 +53,7 @@ export default async function ProductsPage({ searchParams }: PageProps) {
           >
             Editar
           </Button>
-          <ToggleProductButton id={row.id} isActive={row.is_active} />
+          <ToggleProductButton id={row.id} name={row.name} isActive={row.is_active} />
         </div>
       ),
     },

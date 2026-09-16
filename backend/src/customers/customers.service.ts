@@ -64,7 +64,10 @@ export class CustomersService {
   }
 
   async update(id: number, dto: UpdateCustomerDto) {
-    await this.findOne(id);
+    const existing = await this.prisma.customer.findUnique({ where: { id } });
+    if (!existing) {
+      throw new NotFoundException(`Customer #${id} not found`);
+    }
     if (dto.email) {
       const conflict = await this.prisma.customer.findFirst({
         where: { email: dto.email, NOT: { id } },

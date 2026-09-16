@@ -1,9 +1,10 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/atoms/button";
+import { ConfirmDialog } from "@/components/molecules/confirm-dialog";
 import { changeOrderStatus } from "@/actions/orders";
 import type { OrderStatus } from "@/services/api";
 
@@ -14,6 +15,11 @@ interface OrderStatusButtonProps {
   variant?: "default" | "destructive" | "outline" | "ghost";
 }
 
+const CONFIRM_TEXT: Record<string, string> = {
+  completed: "completar",
+  cancelled: "cancelar",
+};
+
 export function OrderStatusButton({
   orderId,
   targetStatus,
@@ -22,8 +28,9 @@ export function OrderStatusButton({
 }: OrderStatusButtonProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
-  function handleClick() {
+  function confirmChange() {
     startTransition(async () => {
       const result = await changeOrderStatus(orderId, targetStatus);
       if (result.error) {
@@ -32,12 +39,25 @@ export function OrderStatusButton({
         toast.success(`Orden marcada como ${targetStatus}.`);
         router.refresh();
       }
+      setConfirmOpen(false);
     });
   }
 
   return (
-    <Button variant={variant} onClick={handleClick} disabled={isPending}>
-      {isPending ? "..." : label}
-    </Button>
+    <>
+      <Button variant={variant} onClick={() => setConfirmOpen(true)} disabled={isPending}>
+        {isPending ? "..." : label}
+      </Button>
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title={label}
+        description={`¿Confirmas ${CONFIRM_TEXT[targetStatus] ?? targetStatus} la orden #${orderId}?`}
+        variant={variant === "destructive" ? "destructive" : "default"}
+        confirmLabel={label}
+        isPending={isPending}
+        onConfirm={confirmChange}
+      />
+    </>
   );
 }

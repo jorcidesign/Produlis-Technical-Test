@@ -74,7 +74,7 @@ export async function toggleProductActive(
     const res = await fetch(`${API_URL}/products/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ is_active: !isActive }),
+      body: JSON.stringify({ isActive: !isActive }),
     });
 
     if (!res.ok) {

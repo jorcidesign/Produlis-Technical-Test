@@ -114,7 +114,12 @@ export function OrderForm({ action, customers, products }: OrderFormProps) {
           onValueChange={(v) => setCustomerId(v ?? "")}
         >
           <SelectTrigger id="customer" aria-label="Cliente" className="w-full">
-            <SelectValue placeholder="Selecciona un cliente" />
+            <SelectValue placeholder="Selecciona un cliente">
+              {(value: string | null) =>
+                customers.find((c) => String(c.id) === value)?.name ??
+                "Selecciona un cliente"
+              }
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             {customers
@@ -139,7 +144,12 @@ export function OrderForm({ action, customers, products }: OrderFormProps) {
                 onValueChange={(v) => updateItem(i, "product_id", v ?? "")}
               >
                 <SelectTrigger className="w-full" aria-label="Producto">
-                  <SelectValue placeholder="Selecciona producto" />
+                  <SelectValue placeholder="Selecciona producto">
+                    {(value: string | null) =>
+                      products.find((p) => String(p.id) === value)?.name ??
+                      "Selecciona producto"
+                    }
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {products

@@ -1,17 +1,17 @@
 # Order Management System
 
-Sistema interno (no ecommerce) de gestión de clientes, productos y órdenes para un equipo administrativo. Un operador busca o crea un cliente, arma una orden seleccionando productos y cantidades, y el sistema calcula el total y guarda el pedido con estado `pending`.
+Internal (non-ecommerce) system for managing customers, products, and orders for an administrative team. An operator searches for or creates a customer, builds an order by selecting products and quantities, and the system calculates the total and saves the order with `pending` status.
 
-Monorepo: `/backend` (NestJS + Prisma + MySQL), `/frontend` (Next.js), `docker-compose.yml` en la raíz. Ver `SPEC.md` y `AGENTS.md` para el detalle de decisiones de producto/arquitectura previas al código.
+Monorepo: `/backend` (NestJS + Prisma + MySQL), `/frontend` (Next.js), `docker-compose.yml` at the root. See `SPEC.md` and `AGENTS.md` for the product/architecture decisions made before writing any code.
 
-## Requisitos previos
+## Prerequisites
 
-- Node.js 24.x y npm
-- Docker + Docker Compose (para MySQL, o para levantar todo el stack)
+- Node.js 24.x and npm
+- Docker + Docker Compose (for MySQL, or to run the whole stack)
 
 ## Setup
 
-### 1. Variables de entorno
+### 1. Environment variables
 
 ```bash
 cp .env.example .env
@@ -19,9 +19,9 @@ cp backend/.env.example backend/.env
 cp frontend/.env.example frontend/.env.local
 ```
 
-Los valores por defecto ya apuntan a `localhost` y al puerto no estándar `3307` de MySQL (para no chocar con una instalación local en el 3306).
+The default values already point to `localhost` and to MySQL's non-standard port `3307` (so it doesn't clash with a local install on 3306).
 
-### 2. Levantar MySQL
+### 2. Start MySQL
 
 ```bash
 docker compose up -d mysql
@@ -31,12 +31,12 @@ docker compose up -d mysql
 
 ```bash
 cd backend
-npm install        # dispara `prisma generate` vía postinstall
-npx prisma migrate deploy   # o `npx prisma migrate dev` en desarrollo
+npm install        # triggers `prisma generate` via postinstall
+npx prisma migrate deploy   # or `npx prisma migrate dev` in development
 npm run start:dev
 ```
 
-Backend en `http://localhost:3001`, Swagger en `http://localhost:3001/api/docs`.
+Backend at `http://localhost:3001`, Swagger at `http://localhost:3001/api/docs`.
 
 ### 4. Frontend
 
@@ -46,79 +46,101 @@ npm install
 npm run dev
 ```
 
-Frontend en `http://localhost:3000`.
+Frontend at `http://localhost:3000`.
 
-## Correr todo con Docker Compose
+## Run everything with Docker Compose
 
 ```bash
 docker compose up --build
 ```
 
-Levanta los 3 servicios (`mysql`, `backend`, `frontend`). El backend espera a que MySQL esté `healthy` antes de arrancar y aplica las migraciones pendientes (`prisma migrate deploy`) automáticamente en su entrypoint, con reintentos. Los 3 servicios corren en `network_mode: host` (ver sección de decisiones técnicas) — funciona en Linux; en otros SO usar el setup local sin Docker para frontend/backend.
+Brings up all 3 services (`mysql`, `backend`, `frontend`). The backend waits for MySQL to be `healthy` before starting and applies pending migrations (`prisma migrate deploy`) automatically in its entrypoint, with retries. All 3 services run under `network_mode: host` (see the technical decisions section) — this works on Linux; on other OSes, use the local (non-Docker) setup for frontend/backend instead.
 
 ## Tests
 
 ```bash
-# Backend — unit (mocks, sin base de datos)
+# Backend — unit (mocked, no database)
 cd backend && npm test
 
-# Backend — e2e (contra un backend real corriendo en :3001 + MySQL)
-docker compose up -d mysql backend   # o `npm run start:dev` en otra terminal
+# Backend — e2e (against a real backend running on :3001 + MySQL)
+docker compose up -d mysql backend   # or `npm run start:dev` in another terminal
 cd backend && npm run test:e2e
 
-# Frontend — Playwright (contra un frontend + backend reales)
-cd frontend && npx playwright install chromium   # una sola vez
+# Frontend — Playwright (against a real frontend + backend)
+cd frontend && npx playwright install chromium   # one-time
 npx playwright test
 ```
 
 ## Technical Decisions & Assumptions
 
-- **Prisma 7 + driver adapters son obligatorios.** Prisma 7 eliminó el motor de queries "clásico" con binario nativo: `new PrismaClient()` sin un `adapter` lanza `PrismaClientInitializationError`. Se usa `@prisma/adapter-mariadb` en `PrismaService`.
-- **MySQL 8 + `caching_sha2_password`.** El driver `mariadb` necesita `allowPublicKeyRetrieval: true` para completar el handshake de auth por defecto de MySQL 8 sin TLS (ver `PrismaService.toPoolConfig`). Sin esto, la primera conexión tras un contenedor de MySQL recién creado falla o cuelga.
-- **Contrato de API normalizado con un interceptor global.** Prisma devuelve objetos en camelCase y `Decimal` como tipo propio; el frontend (ya construido) espera snake_case y `number`. En vez de reescribir el frontend, `TransformResponseInterceptor` normaliza toda respuesta del backend de forma recursiva. La paginación de los 3 recursos usa el mismo shape plano: `{ data, total, page, limit, total_pages }`.
-- **DTOs de `orders` en snake_case (`customer_id`, `product_id`).** Excepción deliberada a la convención camelCase de Nest: las Server Actions del frontend ya envían el body así; nombrar el DTO igual evita tocar el frontend.
-- **Backend e2e como pruebas "black-box" (Supertest contra un servidor real corriendo), no contra un `TestingModule` de Nest en memoria.** El compilador WASM de queries de Prisma 7 (usado por los driver adapters) no carga correctamente dentro del sandbox `--experimental-vm-modules` de Jest — cualquier test que instancie `PrismaService` en el mismo proceso de Jest cuelga o revienta con un error de `Buffer` indefinido. Es una incompatibilidad de la librería, no de este código: se evita instanciando el cliente de Prisma en un proceso Node normal (el servidor real) y hablándole por HTTP desde los tests.
-- **Docker Compose con los 3 servicios en `network_mode: host`.** Así ningún `.env` cambia entre desarrollo local y Docker (todo sigue siendo `localhost`), evitando mezclar host-networking (ya usado por MySQL) con la red bridge por defecto de Compose. Trade-off: solo funciona en Linux y requiere los puertos 3000/3001/3307 libres en el host.
-- **`next.config.ts` con `output: "standalone"`** para una imagen de Docker liviana. `/orders/new` se marca `force-dynamic` porque hace fetch de clientes/productos activos — evita que el build de Next necesite un backend accesible en tiempo de build.
-- **README único en la raíz** (este archivo) en vez de READMEs separados por paquete, dado que es un monorepo con un solo `docker-compose.yml` y una sola fuente de verdad de setup.
-- **Sin stored procedures, auth, roles, websockets, ni capas hexagonales** — fuera de alcance por `AGENTS.md`/`SPEC.md`.
+**Business rules (open requirements from the prompt)**
 
-## Limitaciones conocidas
+- **Product price/name changes → immutable snapshot.** `order_items` stores `product_name` and `unit_price` copied from the product at the exact moment the order is created (`OrdersService.create`, inside the same transaction that calculates the total). Reading an order back (`findAll`/`findOne`) never does `include: { product: true }` or re-reads the catalog — it only returns what was saved on `order_items`. Reasoning: a created order is effectively an invoice line; if the product later changes price or name, past orders must keep showing what was actually sold that day. This is deliberately different from the **customer's** name: `orders` only stores `customer_id` (a live reference to `customers`, no name copy), because the customer's name is master data (the identity of the counterparty), not a description of the transaction — if a typo in the name is fixed, every order for that customer (past and future) should reflect it.
+- **Order cancellation / state machine.** Valid transitions are `pending → completed` and `pending → cancelled` only; `completed` and `cancelled` are terminal. Any other transition (including trying to cancel an already-`completed` order) returns `409 Conflict` (`OrdersService.updateStatus`; see also `update-order-status.dto.ts`, which restricts the request body to `"completed" | "cancelled"` via `@IsIn`). Cancelling never deletes the row — it only changes `status`, for traceability.
+- **Scalability (thousands of records).** Indexes on `orders.customer_id`, `orders.status`, `orders.created_at`, `order_items.order_id`, `order_items.product_id` (`schema.prisma`) — these cover the filters/joins the API actually uses today (listing a customer's orders, filtering by status, ordering by date, resolving an order's items). Nothing more aggressive (caching, stored procedures, partitioning) was implemented, since the prompt doesn't require it for this submission; it's documented below as a future improvement.
 
-- Sin autenticación ni control de acceso — cualquiera con la URL puede operar el sistema.
-- Sin control de inventario/stock — el catálogo es solo nombre + precio.
-- **No hay forma de corregir una orden ya `completed`.** Es una decisión de diseño intencional: una orden completada es, en la práctica, un registro contable/legal (como una factura ya emitida) y no se edita en sitio. Pero como la máquina de estados tampoco permite `completed → cancelled`, si hubo un error después de completar (cantidad mal capturada, producto equivocado) hoy no existe ningún flujo para corregirlo — ni cancelar, ni una "nota de crédito" que la reverse. El flujo real correcto sería agregar ese mecanismo (o permitir cancelar una `completed` dentro de una ventana de tiempo corta), documentado aquí como mejora futura, no implementado en esta entrega.
-- `network_mode: host` en Docker Compose es Linux-only.
-- Los tests e2e de backend y el e2e de Playwright requieren un servidor real corriendo (no están aislados en un sandbox in-memory).
-- Los botones que navegan (`<Button render={<Link .../>}>`) emiten un warning de consola de Base UI ("expected a native `<button>`") en desarrollo. Es cosmético: se probó `nativeButton={false}` para silenciarlo, pero eso reescribe el rol ARIA de `link` a `button` en elementos de navegación (regresión real de semántica/accesibilidad), así que se revirtió — el warning queda documentado en vez de "corregido" con una solución peor.
+**Infrastructure / implementation decisions**
 
-## Mejoras futuras (documentadas, sin código)
+- **Prisma 7 + driver adapters are mandatory.** Prisma 7 removed the "classic" query engine with a native binary: `new PrismaClient()` without an `adapter` throws `PrismaClientInitializationError`. `@prisma/adapter-mariadb` is used in `PrismaService`.
+- **MySQL 8 + `caching_sha2_password`.** The `mariadb` driver needs `allowPublicKeyRetrieval: true` to complete MySQL 8's default non-TLS auth handshake (see `PrismaService.toPoolConfig`). Without this, the first connection right after a freshly created MySQL container either fails or hangs.
+- **API contract normalized via a global interceptor.** Prisma returns camelCase objects and `Decimal` as its own type; the frontend (already built) expects snake_case and `number`. Instead of rewriting the frontend, `TransformResponseInterceptor` recursively normalizes every backend response. Pagination across all 3 resources uses the same flat shape: `{ data, total, page, limit, total_pages }`.
+- **`orders` DTOs in snake_case (`customer_id`, `product_id`).** A deliberate exception to Nest's camelCase convention: the frontend's Server Actions already send the body this way; naming the DTO the same way avoids touching the frontend.
+- **Backend e2e tests as "black-box" tests (Supertest against a real running server), not against an in-memory Nest `TestingModule`.** Prisma 7's WASM query compiler (used by the driver adapters) doesn't load correctly inside Jest's `--experimental-vm-modules` sandbox — any test that instantiates `PrismaService` in the same Jest process hangs or crashes with an undefined-`Buffer` error. This is a library incompatibility, not an issue with this code: it's worked around by instantiating the Prisma client in a normal Node process (the real server) and talking to it over HTTP from the tests.
+- **Docker Compose with all 3 services on `network_mode: host`.** This way no `.env` needs to change between local development and Docker (everything stays `localhost`), avoiding the need to mix host networking (already used by MySQL) with Compose's default bridge network. Trade-off: only works on Linux and requires ports 3000/3001/3307 to be free on the host.
+- **`next.config.ts` with `output: "standalone"`** for a lightweight Docker image. `/orders/new` is marked `force-dynamic` because it fetches active customers/products — this avoids the Next build needing a reachable backend at build time.
+- **A single README at the root** (this file) instead of separate per-package READMEs, since this is a monorepo with a single `docker-compose.yml` and a single source of truth for setup.
+- **No stored procedures, auth, roles, websockets, or hexagonal layers** — out of scope per `AGENTS.md`/`SPEC.md`.
 
-- Auth JWT con roles operario/administrador
-- Historial de auditoría de cambios de estado (tabla `order_status_history`)
-- Cache sobre el catálogo
-- Stored procedures para lecturas de alto volumen
-- Notificaciones al cliente por cambio de estado
-- CI/CD + deploy (GitHub Actions + Railway/Render)
-- Rate limiting y observabilidad
+## Known Limitations
 
-## Endpoints del backend
+- No authentication or access control — anyone with the URL can operate the system.
+- No inventory/stock control — the catalog is just name + price.
+- **There's no way to correct an already-`completed` order.** This is an intentional design decision: a completed order is, in practice, an accounting/legal record (like an invoice that has already been issued) and isn't edited in place. But since the state machine also doesn't allow `completed → cancelled`, if a mistake happened after completing an order (wrong quantity captured, wrong product), there's currently no flow to fix it — no cancellation, no "credit note" to reverse it. The right fix would be to add that mechanism (or allow cancelling a `completed` order within a short time window); it's documented here as a future improvement, not implemented in this submission.
+- **Found and fixed during review:** `UpdateCustomerDto`/`UpdateProductDto` were missing the `isActive` field entirely (neither camelCase nor snake_case), so toggling a customer/product back to active was silently broken regardless of the request body's casing, and `update()` used the isActive-filtering `findOne()` as its existence guard, which made reactivating an inactive record impossible even after the field was added. Both DTOs now accept `isActive`, and `update()` uses a non-filtering lookup as its existence check — reactivating now works end to end through the same "Activate" button in the UI.
+- `network_mode: host` in Docker Compose is Linux-only.
+- Backend e2e tests and the Playwright e2e test require a real server running (they're not isolated in an in-memory sandbox).
+- Buttons that navigate (`<Button render={<Link .../>}>`) emit a Base UI console warning ("expected a native `<button>`") in development. This is cosmetic: `nativeButton={false}` was tried to silence it, but that rewrites the ARIA role from `link` to `button` on navigation elements (a real accessibility/semantics regression), so it was reverted — the warning is documented here instead of "fixed" with a worse solution.
 
-| Método | Ruta | Descripción |
+## Future Improvements (documented, no code)
+
+- JWT auth with operator/admin roles
+- Audit trail for status changes (`order_status_history` table)
+- Caching over the catalog
+- Stored procedures for high-volume reads
+- Customer notifications on status change
+- CI/CD + deployment (GitHub Actions + Railway/Render)
+- Rate limiting and observability
+
+## AI Usage
+
+Claude Code (Claude Sonnet 5) was used throughout the build — scaffolding the NestJS modules, the Prisma schema, the Next.js pages/components, and the Docker setup, plus several review passes against `SPEC.md`/`AGENTS.md` and the original prompt. `SPEC.md` was written first, as a product/architecture brief, specifically so the AI had a single source of truth for business rules instead of guessing them from a bare prompt.
+
+What that review process actually caught and how it was validated:
+
+- A real backend bug (`UpdateCustomerDto`/`UpdateProductDto` missing `isActive`, breaking reactivation both ways) — found by re-reading the update path against the soft-delete requirement, fixed, and confirmed by exercising the "Activate" button end to end plus re-reading the fixed `update()` method.
+- An over-engineered `useCallback` in `search-bar` with no memoized child to justify it — flagged during a "look for over-engineering" pass, removed, verified with `tsc --noEmit`.
+- Two design questions I pushed back on and had explained rather than taken at face value: whether the product-name snapshot should behave like the customer name (it shouldn't — verified in code that `order_items.product_name` is never re-joined against the live `products` table, unlike `orders.customer_id` which intentionally is a live reference), and how to phrase the "deactivate" action in the UI (kept the trash icon for quick recognition, moved the actual consequence — "hidden from active list, can't be used in new orders, history preserved" — into the confirmation dialog's text instead of the button label).
+- Claims about Docker completeness, README sections, and git history were independently checked against the actual files (`docker-compose.yml`, `Dockerfile`s, `git log`) rather than assumed.
+
+`SPEC.md` originally planned to orchestrate Gemini Flash in parallel with Claude; in practice, all commits in this repository were produced with Claude Code end to end (see `Co-Authored-By: Claude Sonnet 5` on every commit) — the Gemini Flash orchestration described in `SPEC.md` was the initial plan, not what actually happened.
+
+## Backend Endpoints
+
+| Method | Route | Description |
 |---|---|---|
-| POST | `/customers` | Crear cliente |
-| GET | `/customers` | Listar clientes activos (paginado, búsqueda por nombre) |
-| GET | `/customers/:id` | Obtener cliente |
-| PATCH | `/customers/:id` | Actualizar cliente |
+| POST | `/customers` | Create customer |
+| GET | `/customers` | List active customers (paginated, search by name) |
+| GET | `/customers/:id` | Get customer |
+| PATCH | `/customers/:id` | Update customer |
 | DELETE | `/customers/:id` | Soft-delete (`is_active=false`) |
-| POST | `/products` | Crear producto |
-| GET | `/products` | Listar productos activos (paginado, búsqueda por nombre) |
-| GET | `/products/:id` | Obtener producto |
-| PATCH | `/products/:id` | Actualizar producto |
+| POST | `/products` | Create product |
+| GET | `/products` | List active products (paginated, search by name) |
+| GET | `/products/:id` | Get product |
+| PATCH | `/products/:id` | Update product |
 | DELETE | `/products/:id` | Soft-delete (`is_active=false`) |
-| POST | `/orders` | Crear orden (`customer_id` + `items[]`) |
-| GET | `/orders` | Listar órdenes (paginado, filtro por `status`/`customer_id`) |
-| GET | `/orders/:id` | Obtener orden con items y cliente |
-| PATCH | `/orders/:id/status` | Cambiar estado (`pending → completed\|cancelled`, 409 si es inválido) |
+| POST | `/orders` | Create order (`customer_id` + `items[]`) |
+| GET | `/orders` | List orders (paginated, filter by `status`/`customer_id`) |
+| GET | `/orders/:id` | Get order with items and customer |
+| PATCH | `/orders/:id/status` | Change status (`pending → completed\|cancelled`, 409 if invalid) |
 
-Documentación interactiva completa en `/api/docs` (Swagger).
+Full interactive documentation at `/api/docs` (Swagger).
